@@ -4,11 +4,11 @@ A static, responsive dashboard for Hermosillo, Sonora. Open `index.html` directl
 
 ## What it shows
 
-- Historical calendar-day high, low, and mean temperatures, averaged across 1991–2020 from Open-Meteo's historical reanalysis archive.
-- Today's daily forecast high, low, and mean, compared with the historical mean for the date.
-- Seven-day forecast summary, daily forecast values alongside historical averages in a filterable table, and an interactive annual chart.
-- Celsius/Fahrenheit switch. All dates follow `America/Hermosillo`; Feb 29 averages only leap years.
+- Historical calendar-day low, mean, and high temperatures, averaged across 1991–2020 from Open-Meteo's historical reanalysis archive. Shaded chart bands show the 10th–90th percentile of historical daily values, not forecast confidence intervals.
+- Today's daily forecast low, mean, and high and individual values for each of the next seven days.
+- Current-year archived temperatures plotted against the historical averages, with year-to-date average differences for low, mean, and high. The archive is requested only through seven days before today to allow for publication lag; the actual latest available date is displayed.
+- A dotted forecast for low, mean, and high on the annual chart, an interactive tooltip, a calendar table that starts at today's date, and a Celsius/Fahrenheit switch.
 
-On load, the page fetches the 30-year historical daily series and the current eight-day forecast from Open-Meteo. It computes the daily climatology in the browser and caches it in `localStorage` for seven days. Live forecasts are fetched on each page load. Because these are model/reanalysis values, today's numbers are forecast daily values rather than finalized station observations.
+The page fetches the 30-year historical series, current-year archive, and live eight-day forecast from Open-Meteo. It calculates the historical day-of-year averages and percentile ranges in the browser, caching those historical aggregates in `localStorage` for seven days. Current-year and forecast data are fetched on each load. Feb 29 uses leap years only. Dates follow `America/Hermosillo`. Today's values are model forecasts rather than finalized station observations.
 
 Data: [Open-Meteo Historical Weather API](https://open-meteo.com/en/docs/historical-weather-api) and [Forecast API](https://open-meteo.com/en/docs). Network access to both endpoints is needed to populate the dashboard.
