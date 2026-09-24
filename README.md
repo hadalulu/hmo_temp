@@ -1,5 +1,7 @@
 # Hermosillo Temperature Atlas
 
+**[Open the live dashboard](https://hadalulu.github.io/hmo_temp/)**
+
 A static, responsive dashboard for Hermosillo, Sonora. Open `index.html` directly in a browser or host the repository on any static site host. No build, API key, or dependencies are required.
 
 ## What it shows
