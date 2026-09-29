@@ -2,6 +2,15 @@ import Foundation
 
 private struct DailyResponse: Decodable {
     let daily: Daily
+    let hourly: Hourly?
+    struct Hourly: Decodable {
+        let time: [String]
+        let probability: [Double?]
+        enum CodingKeys: String, CodingKey {
+            case time
+            case probability = "precipitation_probability"
+        }
+    }
     struct Daily: Decodable {
         let time: [String]
         let high: [Double?]
@@ -60,7 +69,7 @@ enum WeatherAPI {
         ] + parameters
         guard let url = components.url else { throw URLError(.badURL) }
         var request = URLRequest(url: url)
-        request.timeoutInterval = 90
+        request.timeoutInterval = host == "api.open-meteo.com" ? 20 : 90
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let response = response as? HTTPURLResponse, (200..<300).contains(response.statusCode) else {
             throw URLError(.badServerResponse)
@@ -85,6 +94,11 @@ enum WeatherAPI {
     }
     private static var cacheURL: URL? {
         FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.appendingPathComponent("hmo-normals-1991-2020-v2.json")
+    }
+    static func cachedHistorical() -> [String: HistoricalDay] {
+        guard let url = cacheURL, let data = try? Data(contentsOf: url),
+              let cache = try? JSONDecoder().decode(NormalCache.self, from: data) else { return [:] }
+        return cache.days
     }
     static func historical() async throws -> [String: HistoricalDay] {
         if let url = cacheURL,
@@ -119,12 +133,25 @@ enum WeatherAPI {
         let last = days.keys.sorted().last { days[$0]?.mean != nil }
         return YearHistory(days: days, through: last)
     }
-    static func forecast() async throws -> [String: Temperatures] {
+    static func forecast() async throws -> ForecastSnapshot {
         let response = try await request(host: "api.open-meteo.com", path: "/v1/forecast", parameters: [
             URLQueryItem(name: "forecast_days", value: "8"),
-            URLQueryItem(name: "past_days", value: "14")
+            URLQueryItem(name: "past_days", value: "14"),
+            URLQueryItem(name: "hourly", value: "precipitation_probability")
         ])
-        return dictionary(response)
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = HermosilloDate.zone
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm"
+        let rain: [RainHour] = response.hourly.map { hourly in
+            hourly.time.enumerated().compactMap { index, time in
+                guard hourly.probability.indices.contains(index),
+                      let probability = hourly.probability[index],
+                      let date = formatter.date(from: time) else { return nil }
+                return RainHour(date: date, probability: probability)
+            }
+        } ?? []
+        return ForecastSnapshot(temperatures: dictionary(response), rain: rain)
     }
     static func historicalResult() async -> Result<[String: HistoricalDay], Error> {
         do { return .success(try await historical()) } catch { return .failure(error) }
@@ -132,7 +159,7 @@ enum WeatherAPI {
     static func yearResult() async -> Result<YearHistory, Error> {
         do { return .success(try await currentYear()) } catch { return .failure(error) }
     }
-    static func forecastResult() async -> Result<[String: Temperatures], Error> {
+    static func forecastResult() async -> Result<ForecastSnapshot, Error> {
         do { return .success(try await forecast()) } catch { return .failure(error) }
     }
 }
@@ -164,7 +191,9 @@ final class WeatherStore: ObservableObject {
         case .failure: failures.append("current-year history")
         }
         switch await upcoming {
-        case .success(let days): forecast = days
+        case .success(let snapshot):
+            forecast = snapshot.temperatures
+            await WeatherAlerts.check(snapshot: snapshot, normals: normals)
         case .failure: failures.append("forecast")
         }
         updatedAt = .now
