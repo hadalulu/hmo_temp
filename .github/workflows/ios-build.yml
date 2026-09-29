@@ -24,3 +24,7 @@ jobs:
           -sdk iphonesimulator
           -destination 'generic/platform=iOS Simulator'
           CODE_SIGNING_ALLOWED=NO build
+      - name: Check weather alert rules
+        run: |
+          swiftc ios/HermosilloTemperature/Models.swift ios/HermosilloTemperature/AlertRules.swift ios/tests/AlertRulesTests.swift -o /tmp/weather-alert-tests
+          /tmp/weather-alert-tests
